@@ -102,7 +102,7 @@ final class WargamingAuth
      *
      * @return array
      */
-    private function getParams(): array
+    private function getOpenIdValidationParams(): array
     {
         $params = [
             'openid.assoc_handle' => $this->request->get('openid_assoc_handle'),
@@ -134,7 +134,7 @@ final class WargamingAuth
         }
 
         $response = $this->httpClient->request('POST', $this->getOpenIdUrl(), [
-            'form_params' => $this->getParams(),
+            'form_params' => $this->getOpenIdValidationParams(),
         ]);
 
         return strstr($response->getBody()->getContents(), 'is_valid:true') !== false;
