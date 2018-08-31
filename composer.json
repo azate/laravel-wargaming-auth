@@ -18,7 +18,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Azate\\LaravelWargamingAuth\\": "src"
+            "Azate\\Laravel\\WargamingAuth\\": "src"
         }
     },
     "extra": {

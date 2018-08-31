@@ -1,6 +1,6 @@
 <?php
 
-namespace Azate\LaravelWargamingAuth;
+namespace Azate\Laravel\WargamingAuth;
 
 use Illuminate\Support\ServiceProvider;
 

@@ -28,7 +28,7 @@ In `AuthController`:
 ```php
 namespace App\Http\Controllers;
 
-use Azate\LaravelWargamingAuth\WargamingAuth;
+use Azate\Laravel\WargamingAuth\WargamingAuth;
 
 class AuthController extends Controller
 {

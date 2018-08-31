@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Azate\LaravelWargamingAuth;
+namespace Azate\Laravel\WargamingAuth;
 
 use Illuminate\Http\Request;
 use GuzzleHttp\Client as GuzzleClient;
