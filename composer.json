@@ -24,7 +24,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Azate\\LaravelWargamingAuth\\WargamingServiceProvider"
+                "Azate\\Laravel\\WargamingAuth\\Providers\\WargamingAuthServiceProvider"
             ]
         }
     }
