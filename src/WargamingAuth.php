@@ -52,7 +52,7 @@ final class WargamingAuth
      */
     public function getAuthUrl(): string
     {
-        return $this->buildAuthUrl(route(config('wargaming_auth.redirect_route')));
+        return $this->buildAuthUrl(route(config('wargamingAuth.redirectRoute')));
     }
 
     /**

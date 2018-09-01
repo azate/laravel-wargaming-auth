@@ -25,16 +25,16 @@ class WargamingAuthServiceProvider extends ServiceProvider
      */
     protected function setupConfig()
     {
-        $configPath = realpath(__DIR__ . '/../../config/wargaming_auth.php');
+        $configPath = realpath(__DIR__ . '/../../config/wargamingAuth.php');
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                $configPath => $this->app->configPath('wargaming_auth.php'),
+                $configPath => $this->app->configPath('wargamingAuth.php'),
             ]);
         }
 
         if (!$this->app->configurationIsCached()) {
-            $this->mergeConfigFrom($configPath, 'wargaming_auth');
+            $this->mergeConfigFrom($configPath, 'wargamingAuth');
         }
     }
 
