@@ -15,12 +15,12 @@ Laravel >=5.5 uses Package Auto-Discovery, so doesn't require you to manually ad
 Copy the package config to your local config with the publish command:
 
 ```shell
-php artisan vendor:publish --provider="Azate\LaravelWargamingAuth\WargamingServiceProvider"
+php artisan vendor:publish --provider="Azate\Laravel\WargamingAuth\Providers\WargamingAuthServiceProvider"
 ```
 ## Usage example
 In `routes/web.php`:
 ```php
-Route::get('auth/wargaming', 'AuthController@redirectToWargaming')->name('auth.wargaming');
+Route::get('auth/wargaming/{wargamingAuthRegion?}', 'AuthController@redirectToWargaming')->name('auth.wargaming');
 Route::get('auth/wargaming/callback', 'AuthController@handleWargamingCallback')->name('auth.wargaming.handle');
 ```
 
@@ -29,47 +29,54 @@ In `AuthController`:
 namespace App\Http\Controllers;
 
 use Azate\Laravel\WargamingAuth\WargamingAuth;
+use Illuminate\Http\RedirectResponse;
 
 class AuthController extends Controller
 {
     /**
      * @var WargamingAuth
      */
-    protected $wargaming;
+    protected $wargamingAuth;
 
     /**
      * AuthController constructor.
      *
-     * @param WargamingAuth $wargaming
+     * @param WargamingAuth $wargamingAuth
      */
-    public function __construct(WargamingAuth $wargaming)
+    public function __construct(WargamingAuth $wargamingAuth)
     {
-        $this->wargaming = $wargaming;
+        $this->wargamingAuth = $wargamingAuth;
     }
 
     /**
-     * Redirect the user to the authentication page
+     * Redirect the user to the authentication page.
      *
-     * @return \Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse
+     * @param string|null $region
+     *
+     * @return RedirectResponse
      */
-    public function redirectToWargaming()
+    public function redirectToWargaming(string $region = null): RedirectResponse
     {
-        return $this->wargaming->redirect();
+        if ($region) {
+            $this->wargamingAuth->setRegion($region);
+        }
+
+        return new RedirectResponse($this->wargamingAuth->redirectUrl());
     }
 
     /**
-     * Get user info and log in (hypothetically)
+     * Get user info and log in (hypothetically).
      *
-     * @return \Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function handleWargamingCallback()
+    public function handleWargamingCallback(): RedirectResponse
     {
-        if ($this->wargaming->validate()) {
-            $user = $this->wargaming->user();
+        if ($this->wargamingAuth->verify()) {
+            $user = $this->wargamingAuth->user();
 
             //
 
-            return redirect('/');
+            return new RedirectResponse('/');
         }
 
         return $this->redirectToWargaming();

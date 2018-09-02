@@ -4,97 +4,191 @@ declare(strict_types=1);
 
 namespace Azate\Laravel\WargamingAuth;
 
-use Illuminate\Http\Request;
 use GuzzleHttp\Client as GuzzleClient;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Contracts\Routing\UrlGenerator;
+use Illuminate\Http\Request;
+
 
 /**
  * Class WargamingAuth
  *
- * @package Azate\LaravelWargamingAuth
+ * @package Azate\Laravel\WargamingAuth
  */
-final class WargamingAuth
+class WargamingAuth
 {
     /**
+     * Config repository.
+     *
+     * @var ConfigRepository
+     */
+    protected $configRepository;
+
+    /**
+     * Illuminate request class.
+     *
      * @var Request
      */
-    private $request;
+    protected $request;
 
     /**
-     * @var GuzzleClient
-     */
-    private $httpClient;
-
-    /**
-     * Create a new WargamingAuth instance
+     * Illuminate url class.
      *
-     * @param Request $request
+     * @var UrlGenerator
      */
-    public function __construct(Request $request)
-    {
+    protected $urlGenerator;
+
+    /**
+     * Region.
+     *
+     * @var string
+     */
+    protected $region;
+
+    /**
+     * Realm
+     *
+     * @var string
+     */
+    protected $realm;
+
+    /**
+     * Callback url.
+     *
+     * @var string
+     */
+    protected $callbackUrl;
+
+    /**
+     * Creates new instance.
+     *
+     * @param ConfigRepository $configRepository
+     * @param Request $request
+     * @param UrlGenerator $urlGenerator
+     */
+    public function __construct(
+        ConfigRepository $configRepository,
+        Request $request,
+        UrlGenerator $urlGenerator
+    ) {
+        $this->configRepository = $configRepository;
         $this->request = $request;
-        $this->httpClient = new GuzzleClient;
+        $this->urlGenerator = $urlGenerator;
+
+        $this->region = $this->configRepository->get('wargamingAuth.defaultRegion');
+        $this->realm = $this->configRepository->get('app.url');
+        $this->callbackUrl = $this->urlGenerator->route(
+            $this->configRepository->get('wargamingAuth.callbackRoute')
+        );
     }
 
     /**
-     * Returns the OpenID URL
+     * Returns the region.
+     *
+     * @return string
+     */
+    public function getRegion(): string
+    {
+        return $this->region;
+    }
+
+    /**
+     * Set the region.
+     *
+     * @param string $region
+     */
+    public function setRegion(string $region)
+    {
+        $this->region = $region;
+    }
+
+    /**
+     * Returns the realm.
+     *
+     * @return string
+     */
+    public function getRealm(): string
+    {
+        return $this->realm;
+    }
+
+    /**
+     * Set the realm.
+     *
+     * @param string $realm
+     */
+    public function setRealm(string $realm)
+    {
+        $this->realm = $realm;
+    }
+
+    /**
+     * Returns the OpenID URL.
      *
      * @return string
      */
     public function getOpenIdUrl(): string
     {
-        return 'https://ru.wargaming.net/id/openid/';
+        return 'https://' . $this->region . '.wargaming.net/id/openid/';
     }
 
     /**
-     * Returns the Wargaming login URL
+     * Returns the redirect URL.
      *
      * @return string
      */
-    public function getAuthUrl(): string
-    {
-        return $this->buildAuthUrl(route(config('wargamingAuth.redirectRoute')));
-    }
-
-    /**
-     * Build the Wargaming login URL
-     *
-     * @param string|null $returnTo
-     *
-     * @return string
-     */
-    private function buildAuthUrl(string $returnTo = null): string
+    public function redirectUrl(): string
     {
         $params = [
+            'openid.ax.if_available' => 'ext0,ext1',
+            'openid.ax.mode' => 'fetch_request',
+            'openid.ax.type.ext0' => 'http://axschema.openid.wargaming.net/spa/id',
+            'openid.ax.type.ext1' => 'http://axschema.org/namePerson/friendly',
             'openid.claimed_id' => 'http://specs.openid.net/auth/2.0/identifier_select',
             'openid.identity' => 'http://specs.openid.net/auth/2.0/identifier_select',
             'openid.mode' => 'checkid_setup',
             'openid.ns' => 'http://specs.openid.net/auth/2.0',
-            'openid.return_to' => $returnTo,
+            'openid.ns.ax' => 'http://openid.net/srv/ax/1.0',
+            'openid.realm' => $this->realm,
+            'openid.return_to' => $this->callbackUrl,
         ];
 
         return $this->getOpenIdUrl() . '?' . http_build_query($params, '', '&');
     }
 
     /**
-     * Returns the redirect response to login
-     *
-     * @return \Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse
-     */
-    public function redirect()
-    {
-        return redirect($this->getAuthUrl());
-    }
-
-    /**
-     * Validates if the request object has required stream attributes.
+     * OpenID Positive Assertions.
      *
      * @return bool
      */
-    private function requestIsValid(): bool
+    private function isPositiveAssertion(): bool
     {
-        return $this->request->has('openid_assoc_handle')
-            && $this->request->has('openid_sig')
-            && $this->request->has('openid_signed');
+        $hasFields = $this->request->has([
+            'openid_assoc_handle',
+            'openid_claimed_id',
+            'openid_identity',
+            'openid_mode',
+            'openid_ns',
+            'openid_op_endpoint',
+            'openid_response_nonce',
+            'openid_return_to',
+            'openid_sig',
+            'openid_signed',
+        ]);
+
+        $isModeIdRes = $this->request->get('openid_mode') === 'id_res';
+
+        return $hasFields && $isModeIdRes;
+    }
+
+    /**
+     * OpenID Verifying the Return URL.
+     *
+     * @return bool
+     */
+    public function verifyingReturnUrl(): bool
+    {
+        return $this->request->get('openid_return_to') === $this->request->url();
     }
 
     /**
@@ -104,13 +198,7 @@ final class WargamingAuth
      */
     private function getOpenIdValidationParams(): array
     {
-        $params = [
-            'openid.assoc_handle' => $this->request->get('openid_assoc_handle'),
-            'openid.ns' => 'http://specs.openid.net/auth/2.0',
-            'openid.sig' => $this->request->get('openid_sig'),
-            'openid.signed' => $this->request->get('openid_signed'),
-        ];
-
+        $params = [];
         $signedParams = explode(',', $this->request->get('openid_signed'));
 
         foreach ($signedParams as $item) {
@@ -118,55 +206,55 @@ final class WargamingAuth
         }
 
         $params['openid.mode'] = 'check_authentication';
+        $params['openid.sig'] = $this->request->get('openid_sig');
 
         return $params;
     }
 
     /**
-     * Checks
+     * OpenID Verifying Signatures (Wargaming uses Direct Verification).
      *
      * @return bool
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function validate(): bool
+    public function verifyingSignatures(): bool
     {
-        if (!$this->requestIsValid()) {
-            return false;
-        }
+        $httpClient = new GuzzleClient;
 
-        $response = $this->httpClient->request('POST', $this->getOpenIdUrl(), [
+        $response = $httpClient->request('POST', $this->getOpenIdUrl(), [
             'form_params' => $this->getOpenIdValidationParams(),
         ]);
 
-        return strstr($response->getBody()->getContents(), 'is_valid:true') !== false;
+        $content = $response->getBody()->getContents();
+
+        return strpos($content, 'is_valid:true') !== false;
     }
 
     /**
-     * Parse user data
+     * Process to verify an OpenID assertion.
      *
-     * @return array
+     * @return bool
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    private function parseUserData(): array
+    public function verify(): bool
     {
-        preg_match('#/id/([0-9]+)-(.*)/#', $this->request->get('openid_identity'), $matches);
-
-        return [
-            'id' => $matches[1],
-            'nickname' => $matches[2],
-        ];
+        return $this->isPositiveAssertion()
+            && $this->verifyingReturnUrl()
+            && $this->verifyingSignatures();
     }
 
     /**
-     * Returns the user data
+     * Returns the user data.
      *
      * @return array
      */
     public function user(): array
     {
-        $data = $this->parseUserData();
-
         return [
-            'id' => $data['id'],
-            'nickname' => $data['nickname'],
+            'id' => $this->request->get('openid_ax_value_ext0_1'),
+            'nickname' => $this->request->get('openid_ax_value_ext1_1'),
         ];
     }
 }

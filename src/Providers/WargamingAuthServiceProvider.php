@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace Azate\Laravel\WargamingAuth\Providers;
 
+use Azate\Laravel\WargamingAuth\WargamingAuth;
+use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 
+/**
+ * Class WargamingAuthServiceProvider.
+ *
+ * @package Azate\Laravel\WargamingAuth\Providers
+ */
 class WargamingAuthServiceProvider extends ServiceProvider
 {
     /**
@@ -16,6 +23,7 @@ class WargamingAuthServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->setupConfig();
+        $this->setupRoutePattern();
     }
 
     /**
@@ -39,6 +47,23 @@ class WargamingAuthServiceProvider extends ServiceProvider
     }
 
     /**
+     * Setup the route pattern.
+     *
+     * @return void
+     */
+    protected function setupRoutePattern()
+    {
+        $regions = $this->app['config']->get('wargamingAuth.regions');
+
+        $pattern = (new Collection($regions))
+            ->filter()
+            ->keys()
+            ->implode('|');
+
+        $this->app['router']->pattern('wargamingAuthRegion', $pattern);
+    }
+
+    /**
      * Register services.
      *
      * @return void
@@ -46,7 +71,11 @@ class WargamingAuthServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(WargamingAuth::class, function () {
-            return new WargamingAuth($this->app['request']);
+            return new WargamingAuth(
+                $this->app['config'],
+                $this->app['request'],
+                $this->app['url']
+            );
         });
     }
 }
